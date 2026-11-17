@@ -74,6 +74,15 @@ def get_entry(entry_id: int) -> dict:
     return entry
 
 
+@router.get("/{entry_id}/metric")
+def get_metric_values(entry_id: int) -> dict:
+    """图表刷新：按数据来源指标读取一份完整已发布版本包，口径版本与指标值保持一致。"""
+    result = service.metric_values(entry_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"图表 {entry_id} 不存在或已归档")
+    return result
+
+
 @router.post("", response_model=ActionResult)
 def create_entry(payload: dict[str, object]) -> ActionResult:
     """登记一条图表，缺字段时说明原因而不是静默丢弃。"""

@@ -48,6 +48,9 @@
             >
               {{ action }}
             </button>
+            <button class="link" type="button" :data-testid="`refresh-metric-${row.id}`" @click="refreshMetric(row)">
+              刷新指标值
+            </button>
           </td>
         </tr>
         <tr v-if="!rows.length">
@@ -76,6 +79,18 @@
       <span>共 {{ total }} 条图表配置记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
+
+    <section v-if="metricSnapshot" class="chart-metric-panel" data-testid="chart-metric-panel">
+      <h3>图表取值 · {{ metricSnapshot['图表名称'] }}</h3>
+      <p class="page-desc">{{ metricSnapshot.刷新说明 }}</p>
+      <div class="chart-metric-grid">
+        <div><span class="stat-label">数据来源</span><strong>{{ metricSnapshot.数据来源 || '—' }}</strong></div>
+        <div><span class="stat-label">口径版本</span><strong>{{ metricSnapshot.口径版本 ?? '—' }}</strong></div>
+        <div><span class="stat-label">指标值</span><strong>{{ metricSnapshot.指标值 ?? '—' }}</strong></div>
+        <div><span class="stat-label">版本包</span><strong>{{ metricSnapshot.指标取值?.包编号 ?? '—' }}</strong></div>
+        <div><span class="stat-label">一致性</span><strong>{{ metricSnapshot.指标值口径版本一致 ? '口径与指标值同包' : '尚未取到已发布版本' }}</strong></div>
+      </div>
+    </section>
   </section>
 </template>
 
@@ -94,6 +109,7 @@ const metricNames = ["已发布图表", "草稿图表", "停用图表"]
 
 const rows = ref<Row[]>([])
 const total = ref(0)
+const metricSnapshot = ref<Record<string, any> | null>(null)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
@@ -165,6 +181,18 @@ async function runAction(action: string, row: Row) {
     await reload()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '图表配置操作失败'
+  }
+}
+
+async function refreshMetric(row: Row) {
+  errorMessage.value = ''
+  try {
+    const response = await request(`${ENDPOINT}/${row.id}/metric`)
+    if (!response.ok) throw new Error('图表指标值读取失败')
+    metricSnapshot.value = await response.json()
+  } catch (error) {
+    metricSnapshot.value = null
+    errorMessage.value = error instanceof Error ? error.message : '图表指标值读取失败'
   }
 }
 

@@ -1,19 +1,20 @@
-"""指标定义 分析看板接口：汇总指标、参数运行与结果导出。"""
+"""指标定义接口：指标列表、汇总卡片、按生效版本运行展示与导出。"""
 from __future__ import annotations
 
 import csv
 import io
-import random
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.schemas import ActionPayload, ActionResult, EntryPayload
+from app.schemas import EntryPayload
 from app.services.metric_def import MetricDefService
+from app.services.metric_release import MetricReleaseService
 
 router = APIRouter(prefix="/api/metric_def", tags=["指标定义"])
 service = MetricDefService()
+release_service = MetricReleaseService()
 LIST_FIELDS = ["指标编号", "指标名称", "计算公式", "统计粒度", "时间窗口", "筛选条件", "精度位数", "口径版本"]
 STATUSES = ["草稿", "已定义", "已发布", "已废弃"]
 
@@ -27,11 +28,8 @@ def csv_cell(value: Any) -> str:
 
 @router.get("/summary")
 def get_summary() -> dict[str, Any]:
-    return {"metrics": [
-        {"label": "覆盖数据源", "value": random.randint(12, 45), "trend": random.randint(-12, 25)},
-        {"label": "最新指标值", "value": round(random.uniform(0.72, 0.99), 3), "trend": random.randint(-8, 15)},
-        {"label": "异常记录", "value": random.randint(0, 8), "trend": -random.randint(1, 10)},
-    ]}
+    """汇总卡片读取指标发布版本包统计，避免页面顶部的指标值与口径无关。"""
+    return {"metrics": release_service.summary_metrics()}
 
 
 @router.get("")

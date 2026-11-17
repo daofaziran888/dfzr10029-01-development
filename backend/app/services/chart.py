@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.store import store
+from app.services.metric_release import MetricReleaseService
 
 MODULE = "chart"
 LIST_FIELDS = ["图表编号", "图表名称", "图表类型", "数据来源", "坐标字段", "聚合方式", "颜色方案", "图表状态"]
@@ -63,3 +64,33 @@ class ChartService:
         entry["pending"] = target != STATUS_ORDER[-1]
         entry["abnormal"] = action in NEGATIVE_ACTIONS
         return entry, f"图表已{action}"
+
+    def metric_values(self, entry_id: int) -> dict[str, Any] | None:
+        """图表刷新取值：只读取数据来源指标的一份完整已发布版本包。
+
+        口径版本与指标值同包同发布边界返回，图表不会读到新口径配旧基准的值。
+        """
+        entry = store.find(MODULE, entry_id)
+        if entry is None:
+            return None
+        metric_code = str(entry.get("数据来源") or "").strip()
+        snapshot = MetricReleaseService().chart_snapshot(metric_code) if metric_code else {
+            "ok": False,
+            "has_value": False,
+            "指标编号": None,
+            "指标值": None,
+            "口径版本": None,
+            "message": "图表未配置指标数据来源",
+        }
+        return {
+            "图表id": entry.get("id"),
+            "图表编号": entry.get("图表编号"),
+            "图表名称": entry.get("图表名称"),
+            "数据来源": metric_code,
+            "指标取值": snapshot,
+            "口径版本": snapshot.get("口径版本"),
+            "指标值": snapshot.get("指标值"),
+            # 只有指标值来自已发布版本包时，口径版本与指标值才算同源可对账。
+            "指标值口径版本一致": bool(snapshot.get("has_value") and snapshot.get("包编号")),
+            "刷新说明": snapshot.get("message"),
+        }
